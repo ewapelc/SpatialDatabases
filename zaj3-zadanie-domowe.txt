@@ -1,0 +1,167 @@
+1. 
+
+shp2pgsql C:\cw3-bazy\T2018_KAR_GERMANY\T2018_KAR_BUILDINGS.shp cw3.T2018_KAR_BUILDINGS | psql -h localhost -p 5432 -d baza_testowa -U postgres
+
+shp2pgsql C:\cw3-bazy\T2019_KAR_GERMANY\T2019_KAR_BUILDINGS.shp cw3.T2019_KAR_BUILDINGS | psql -h localhost -p 5432 -d baza_testowa -U postgres
+
+
+CREATE VIEW new_buildings AS 
+(
+	SELECT t2019.*
+	FROM cw3.t2019_kar_buildings as t2019
+	LEFT JOIN cw3.t2018_kar_buildings as t2018
+	ON t2018.polygon_id = t2019.polygon_id
+	WHERE t2018.polygon_id IS NULL
+);
+
+SELECT *
+FROM new_buildings;
+
+
+2.
+
+shp2pgsql C:\cw3-bazy\T2018_KAR_GERMANY\T2018_KAR_POI_TABLE.shp cw3.T2018_KAR_POI_TABLE | psql -h localhost -p 5432 -d baza_testowa -U postgres
+
+shp2pgsql C:\cw3-bazy\T2019_KAR_GERMANY\T2019_KAR_POI_TABLE.shp cw3.T2019_KAR_POI_TABLE | psql -h localhost -p 5432 -d baza_testowa -U postgres
+
+
+CREATE VIEW new_poi AS 
+(
+	SELECT t2019.*
+	FROM cw3.t2019_kar_poi_table as t2019
+	LEFT JOIN cw3.t2018_kar_poi_table as t2018
+	ON t2018.poi_id = t2019.poi_id
+	WHERE t2018.poi_id IS NULL
+);
+
+
+SELECT new_poi.type, COUNT(*) as count
+FROM new_buildings 
+CROSS JOIN new_poi
+WHERE ST_Contains(ST_buffer(new_buildings.geom, 0.005), new_poi.geom) = TRUE
+GROUP BY new_poi.type
+ORDER BY count DESC;
+
+
+3.
+
+CREATE VIEW reprojected1 AS
+(
+	SELECT gid, ST_Transform(ST_SetSRID(geom, 4326), 3068) as geom_dhdn
+	FROM cw3.t2019_kar_streets
+);
+
+SELECT *
+INTO cw3.streets_reprojected1
+FROM reprojected1;
+
+
+4.
+
+CREATE TABLE cw3.input_points (
+	gid int,
+	name varchar(255),
+	geometry geometry
+);
+
+
+INSERT INTO cw3.input_points VALUES (1, 'A', 'POINT(8.36093 49.03174)');
+INSERT INTO cw3.input_points VALUES (2, 'B', 'POINT(8.39876 49.00644)');
+
+
+5.
+
+UPDATE cw3.input_points 
+SET geometry  = ST_SetSRID(geometry, 3068);
+
+SELECT ST_SRID(geometry)
+FROM cw3.input_points;
+
+
+6.
+
+UPDATE cw3.t2019_kar_street_node
+SET geom  = ST_SetSRID(geom, 3068);
+
+SELECT ST_SRID(geom)
+FROM cw3.t2019_kar_street_node;
+
+
+
+CREATE VIEW line_with_buffer AS
+(
+	SELECT ST_Buffer(ST_MakeLine(t1.geometry, t2.geometry), 0.002) 
+	FROM cw3.input_points as t1
+	CROSS JOIN cw3.input_points as t2
+	WHERE t1.name = 'A' AND t2.name = 'B'
+);
+
+SELECT *
+FROM cw3.t2019_kar_street_node
+CROSS JOIN line_with_buffer
+WHERE ST_Contains(ST_Buffer, geom);
+
+
+
+
+7.
+
+CREATE VIEW parks AS
+(
+	SELECT gid, ST_Buffer(geom, 0.003)
+	FROM cw3.t2019_kar_land_use_a
+	WHERE type = 'Park (City/County)'
+);
+
+CREATE VIEW sport_shops AS
+(
+	SELECT *
+	FROM cw3.t2019_kar_poi_table
+	WHERE type = 'Sporting Goods Store'
+);
+
+SELECT COUNT(*)
+FROM parks
+CROSS JOIN sport_shops
+WHERE ST_Contains(parks.st_buffer, sport_shops.geom);
+
+
+8.
+
+UPDATE cw3.t2019_kar_water_lines
+SET geom  = ST_SetSRID(geom, 3068);
+
+UPDATE cw3.t2019_kar_railways
+SET geom  = ST_SetSRID(geom, 3068);
+
+
+CREATE VIEW intersection_points AS
+(
+	SELECT ST_Intersection(wl.geom, r.geom) as intersection_point
+	FROM cw3.t2019_kar_water_lines AS wl
+	CROSS JOIN cw3.t2019_kar_railways AS r
+);
+
+SELECT * 
+INTO cw3.T2019_KAR_BRIDGES
+FROM intersection_points;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
