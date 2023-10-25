@@ -72,7 +72,7 @@ INSERT INTO cw3.input_points VALUES (2, 'B', 'POINT(8.39876 49.00644)');
 5.
 
 UPDATE cw3.input_points 
-SET geometry  = ST_SetSRID(geometry, 3068);
+SET geometry  = St_Transform(ST_SetSRID(geometry, 4326), 3068);
 
 SELECT ST_SRID(geometry)
 FROM cw3.input_points;
@@ -81,7 +81,7 @@ FROM cw3.input_points;
 6.
 
 UPDATE cw3.t2019_kar_street_node
-SET geom  = ST_SetSRID(geom, 3068);
+SET geom  = ST_Transform(ST_SetSRID(geom, 4326), 3068);
 
 SELECT ST_SRID(geom)
 FROM cw3.t2019_kar_street_node;
@@ -129,10 +129,10 @@ WHERE ST_Contains(parks.st_buffer, sport_shops.geom);
 8.
 
 UPDATE cw3.t2019_kar_water_lines
-SET geom  = ST_SetSRID(geom, 3068);
+SET geom  = ST_Transform(ST_SetSRID(geom, 4326), 3068);
 
 UPDATE cw3.t2019_kar_railways
-SET geom  = ST_SetSRID(geom, 3068);
+SET geom  = ST_Transform(ST_SetSRID(geom, 4326), 3068);
 
 
 CREATE VIEW intersection_points AS
